@@ -2,6 +2,7 @@ package com.murdock.books.net.chapter6;
 
 import org.junit.Test;
 
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
@@ -76,5 +77,13 @@ public class InetAddressTest {
         InetAddress address = InetAddress.getByName("192.168.31.93");
         boolean reachable = address.isReachable(3000);
         System.out.println(reachable);
+    }
+
+    @Test
+    public void any() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+//        Method anyLocalAddress = InetAddress.class.getDeclaredMethod("anyLocalAddress");
+//        anyLocalAddress.setAccessible(true);
+//        InetAddress any = (InetAddress) anyLocalAddress.invoke(null);
+//        System.out.println(any);
     }
 }
