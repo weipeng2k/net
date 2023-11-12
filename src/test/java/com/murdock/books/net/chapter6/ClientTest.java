@@ -4,7 +4,6 @@ import org.junit.Test;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.io.LineNumberReader;
 import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -21,7 +20,7 @@ public class ClientTest {
         InetAddress inetAddress = InetAddress.getByName("www.baidu.com");
         SocketAddress socketAddress = new InetSocketAddress(inetAddress, 80);
         Socket socket = new Socket();
-        // imply bind
+        // imply bind & connect
         socket.connect(socketAddress, 3000);
 
         PrintWriter out = new PrintWriter(socket.getOutputStream());

@@ -74,9 +74,18 @@ public class InetAddressTest {
      */
     @Test
     public void isReach() throws Exception {
-        InetAddress address = InetAddress.getByName("192.168.31.93");
+        InetAddress address = InetAddress.getByName("192.168.31.1");
         boolean reachable = address.isReachable(3000);
         System.out.println(reachable);
+    }
+
+    @Test
+    public void ip() throws Exception {
+        InetAddress address = InetAddress.getByName("192.168.31.67");
+        address.isReachable(300);
+        System.out.println(address.getCanonicalHostName());
+        System.out.println(address.getHostName());
+        System.out.println(address);
     }
 
     @Test
