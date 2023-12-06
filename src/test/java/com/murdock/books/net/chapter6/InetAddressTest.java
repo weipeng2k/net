@@ -40,7 +40,14 @@ public class InetAddressTest {
     @Test
     public void getByNameStringInternet() throws Exception {
         InetAddress address = InetAddress.getByName("www.taobao.com");
-        System.out.println(address);
+        System.out.println("HostName:" + address.getHostName());
+        System.out.println("HostAddress:" + address.getHostAddress());
+    }
+
+    @Test
+    public void getByNameStringInternet1() throws Exception {
+        InetAddress address = InetAddress.getByName("192.168.31.1");
+        System.out.println(address.getHostName());
     }
 
     @Test
