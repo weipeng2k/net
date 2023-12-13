@@ -16,25 +16,33 @@ import java.net.SocketAddress;
 public class ClientTest {
 
     @Test
+    public void p() {
+        System.out.println((byte) 255);
+    }
+
+    @Test
     public void http() throws Exception {
         InetAddress inetAddress = InetAddress.getByName("www.baidu.com");
         SocketAddress socketAddress = new InetSocketAddress(inetAddress, 80);
-        Socket socket = new Socket();
-        // imply bind & connect
-        socket.connect(socketAddress, 3000);
+        BufferedReader bufferedReader;
+        try (Socket socket = new Socket()) {
+            // imply bind & connect
+            socket.connect(socketAddress, 3000);
 
-        PrintWriter out = new PrintWriter(socket.getOutputStream());
-        out.println("GET / HTTP/1.0\r\n");
-        out.println("HOST: www.baidu.com\r\n");
-        out.println("Accept-Encoding:gzip,deflate\r\n");
-        out.println("Accept: */*\r\n");
-        out.println("\r\n");
-        out.flush();
+            PrintWriter out = new PrintWriter(socket.getOutputStream());
+            out.println("GET / HTTP/1.0\r\n");
+            out.println("HOST: www.baidu.com\r\n");
+            out.println("Accept-Encoding:gzip,deflate\r\n");
+            out.println("Accept: */*\r\n");
+            out.println("\r\n");
+            out.flush();
 
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        String line = null;
-        while ((line = bufferedReader.readLine()) != null) {
-            System.out.println(line);
+            bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                System.out.println(line);
+            }
         }
     }
 }

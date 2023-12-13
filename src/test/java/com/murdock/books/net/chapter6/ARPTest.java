@@ -2,12 +2,9 @@ package com.murdock.books.net.chapter6;
 
 import org.junit.Test;
 import org.pcap4j.core.BpfProgram;
-import org.pcap4j.core.NotOpenException;
 import org.pcap4j.core.PacketListener;
 import org.pcap4j.core.PcapHandle;
-import org.pcap4j.core.PcapNativeException;
 import org.pcap4j.core.PcapNetworkInterface;
-import org.pcap4j.core.PcapPacket;
 import org.pcap4j.core.Pcaps;
 import org.pcap4j.packet.ArpPacket;
 import org.pcap4j.packet.EthernetPacket;
@@ -19,47 +16,39 @@ import org.pcap4j.util.ByteArrays;
 import org.pcap4j.util.MacAddress;
 
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
- * @author weipeng2k 2023-12-06 17:36:17
+ *
  */
 public class ARPTest {
 
-    private static final String COUNT_KEY = ARPTest.class.getName() + ".count";
-    private static final int COUNT = Integer.getInteger(COUNT_KEY, 1);
-
-    private static final String READ_TIMEOUT_KEY = ARPTest.class.getName() + ".readTimeout";
-    private static final int READ_TIMEOUT = Integer.getInteger(READ_TIMEOUT_KEY, 10); // [ms]
-
-    private static final String SNAPLEN_KEY = ARPTest.class.getName() + ".snaplen";
-    private static final int SNAPLEN = Integer.getInteger(SNAPLEN_KEY, 65536); // [bytes]
-
-    private static final MacAddress SRC_MAC_ADDR = MacAddress.getByName("fe:00:01:02:03:04");
+    private static final MacAddress SRC_MAC_ADDR = MacAddress.getByName("f0:18:98:1f:91:e4");
 
     private static MacAddress resolvedAddr;
 
     @Test
     public void arpRequest() throws Exception {
-        String strSrcIpAddress = "192.168.31.137"; // for InetAddress.getByName()
-        String strDstIpAddress = "192.168.31.58"; // for InetAddress.getByName()
+        // 本机IP
+        String strSrcIpAddress = "192.168.31.139";
+        // 目标IP，带查询MAC的IP
+        String strDstIpAddress = "192.168.31.58";
 
-        InetAddress addr = InetAddress.getByName("192.168.31.137");
+        InetAddress addr = InetAddress.getByName(strSrcIpAddress);
+        // 根据IP获取到对应的Pcap网络接口，可以理解获取到了en0网卡
         PcapNetworkInterface nif = Pcaps.getDevByAddress(addr);
 
-        if (nif == null) {
-            return;
-        }
-
-        System.out.println(nif.getName() + "(" + nif.getDescription() + ")");
-
-        PcapHandle handle = nif.openLive(SNAPLEN, PcapNetworkInterface.PromiscuousMode.PROMISCUOUS, READ_TIMEOUT);
-        PcapHandle sendHandle = nif.openLive(SNAPLEN, PcapNetworkInterface.PromiscuousMode.PROMISCUOUS, READ_TIMEOUT);
+        // 监听网卡的流入数据，每个包监听的长度为65536 bytes
+        PcapHandle handle = nif.openLive(65536, PcapNetworkInterface.PromiscuousMode.PROMISCUOUS, 10);
+        // 向网卡发送数据的入口，使用它来发送ARP请求报文
+        PcapHandle sendHandle = nif.openLive(65536, PcapNetworkInterface.PromiscuousMode.PROMISCUOUS, 10);
+        // 构建监听网卡流量运行任务的线程池
         ExecutorService pool = Executors.newSingleThreadExecutor();
 
         try {
+            // 设置监听流量的规则：监听ARP包，IP地址以及目标MAC地址是本机的包
             handle.setFilter(
                     "arp and src host "
                             + strDstIpAddress
@@ -68,40 +57,31 @@ public class ARPTest {
                             + " and ether dst "
                             + Pcaps.toBpfString(SRC_MAC_ADDR),
                     BpfProgram.BpfCompileMode.OPTIMIZE);
-
-            PacketListener listener =
-                    new PacketListener() {
-                        @Override
-                        public void gotPacket(PcapPacket packet) {
-                            if (packet.contains(ArpPacket.class)) {
-                                ArpPacket arp = packet.get(ArpPacket.class);
-                                if (arp.getHeader().getOperation().equals(ArpOperation.REPLY)) {
-                                    ARPTest.resolvedAddr = arp.getHeader().getSrcHardwareAddr();
-                                }
-                            }
-                            System.out.println(packet);
-                        }
-                    };
-
-            Task t = new Task(handle, listener);
+            // 对于ARP协议的包进行处理，且仅处理ARP响应报文，记录并打印
+            Task t = new Task(handle, packet -> {
+                if (packet.contains(ArpPacket.class)) {
+                    ArpPacket arp = packet.get(ArpPacket.class);
+                    if (arp.getHeader().getOperation().equals(ArpOperation.REPLY)) {
+                        ARPTest.resolvedAddr = arp.getHeader().getSrcHardwareAddr();
+                        System.err.println(packet);
+                    }
+                }
+            });
             pool.execute(t);
 
+            // 构建ARP报文，可以看到ARP被设计用在多种链路层上，而目标MAC地址设置为全0
             ArpPacket.Builder arpBuilder = new ArpPacket.Builder();
-            try {
-                arpBuilder
-                        .hardwareType(ArpHardwareType.ETHERNET)
-                        .protocolType(EtherType.IPV4)
-                        .hardwareAddrLength((byte) MacAddress.SIZE_IN_BYTES)
-                        .protocolAddrLength((byte) ByteArrays.INET4_ADDRESS_SIZE_IN_BYTES)
-                        .operation(ArpOperation.REQUEST)
-                        .srcHardwareAddr(SRC_MAC_ADDR)
-                        .srcProtocolAddr(InetAddress.getByName(strSrcIpAddress))
-                        .dstHardwareAddr(MacAddress.ETHER_BROADCAST_ADDRESS)
-                        .dstProtocolAddr(InetAddress.getByName(strDstIpAddress));
-            } catch (UnknownHostException e) {
-                throw new IllegalArgumentException(e);
-            }
-
+            arpBuilder
+                    .hardwareType(ArpHardwareType.ETHERNET)
+                    .protocolType(EtherType.IPV4)
+                    .hardwareAddrLength((byte) MacAddress.SIZE_IN_BYTES)
+                    .protocolAddrLength((byte) ByteArrays.INET4_ADDRESS_SIZE_IN_BYTES)
+                    .operation(ArpOperation.REQUEST)
+                    .srcHardwareAddr(SRC_MAC_ADDR)
+                    .srcProtocolAddr(InetAddress.getByName(strSrcIpAddress))
+                    .dstHardwareAddr(MacAddress.getByAddress(new byte[]{0, 0, 0, 0, 0, 0}))
+                    .dstProtocolAddr(InetAddress.getByName(strDstIpAddress));
+            // 将ARP报文放置到以太网的分组中，目标MAC地址为：ff:ff:ff:ff:ff:ff
             EthernetPacket.Builder etherBuilder = new EthernetPacket.Builder();
             etherBuilder
                     .dstAddr(MacAddress.ETHER_BROADCAST_ADDRESS)
@@ -110,24 +90,20 @@ public class ARPTest {
                     .payloadBuilder(arpBuilder)
                     .paddingAtBuild(true);
 
-            for (int i = 0; i < COUNT; i++) {
-                Packet p = etherBuilder.build();
-                System.out.println(p);
-                sendHandle.sendPacket(p);
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    break;
-                }
-            }
+            Packet p = etherBuilder.build();
+            System.out.println(p);
+            // 发送分组
+            sendHandle.sendPacket(p);
+
+            TimeUnit.SECONDS.sleep(2);
         } finally {
-            if (handle != null && handle.isOpen()) {
+            if (handle.isOpen()) {
                 handle.close();
             }
-            if (sendHandle != null && sendHandle.isOpen()) {
+            if (sendHandle.isOpen()) {
                 sendHandle.close();
             }
-            if (pool != null && !pool.isShutdown()) {
+            if (!pool.isShutdown()) {
                 pool.shutdown();
             }
 
@@ -135,26 +111,14 @@ public class ARPTest {
         }
     }
 
-    private static class Task implements Runnable {
-
-        private PcapHandle handle;
-        private PacketListener listener;
-
-        public Task(PcapHandle handle, PacketListener listener) {
-            this.handle = handle;
-            this.listener = listener;
-        }
+    private record Task(PcapHandle handle, PacketListener listener) implements Runnable {
 
         @Override
         public void run() {
             try {
-                handle.loop(COUNT, listener);
-            } catch (PcapNativeException e) {
-                e.printStackTrace();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } catch (NotOpenException e) {
-                e.printStackTrace();
+                handle.loop(1, listener);
+            } catch (Exception ex) {
+                // Ignore.
             }
         }
     }
