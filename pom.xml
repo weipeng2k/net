@@ -17,6 +17,16 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+            <version>6.3.1.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>3.2.0</version>
+        </dependency>
+        <dependency>
             <groupId>org.pcap4j</groupId>
             <artifactId>pcap4j-core</artifactId>
             <version>1.8.2</version>

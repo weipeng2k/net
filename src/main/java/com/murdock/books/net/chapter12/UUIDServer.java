@@ -89,24 +89,37 @@ public class UUIDServer {
             if (selectionKey.isAcceptable()) {
                 ServerSocketChannel channel = (ServerSocketChannel) selectionKey.channel();
                 // client
-                SocketChannel socketChannel = channel.accept();
-                socketChannel.configureBlocking(false);
-                ByteBuffer byteBuffer = ByteBuffer.allocate(128);
-                socketChannel.register(selector, SelectionKey.OP_WRITE, byteBuffer);
+//                SocketChannel socketChannel = channel.accept();
+//                socketChannel.configureBlocking(false);
+//                ByteBuffer byteBuffer = ByteBuffer.allocate(128);
+//                socketChannel.register(selector, SelectionKey.OP_WRITE, byteBuffer);
             } else if (selectionKey.isWritable()) {
                 SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
                 ByteBuffer byteBuffer = (ByteBuffer) selectionKey.attachment();
-                if (!byteBuffer.hasRemaining()) {
+                if (byteBuffer.hasRemaining()) {
+                    try {
+                        byteBuffer.rewind();
+                        byteBuffer.put(UUID.randomUUID().toString().getBytes());
+                        byteBuffer.flip();
+                        socketChannel.write(byteBuffer);
+                    } catch (Exception ex) {
+                        selectionKey.cancel();
+                        socketChannel.close();
+                    }
+                } else {
                     byteBuffer.rewind();
                     byteBuffer.put(UUID.randomUUID().toString().getBytes());
                     byteBuffer.flip();
+                    try {
+                        socketChannel.write(byteBuffer);
+
+                    } catch (Exception ex) {
+                        selectionKey.cancel();
+                        socketChannel.close();
+                    }
                 }
-                try {
-                    socketChannel.write(byteBuffer);
-                } catch (Exception ex) {
-                    selectionKey.cancel();
-                    socketChannel.close();
-                }
+
+                selectionKey.interestOps(SelectionKey.OP_READ);
             }
         } catch (Exception ex) {
             ex.printStackTrace();
